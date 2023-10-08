@@ -44,38 +44,92 @@ green_areas %>% pull(osm_id) %>% duplicated %>% which
 save(green_areas, file="Green_areas_OSM_polygons.RData")
 st_write(green_areas, dsn="Green_areas_OSM_polygons.shp", append = F)
 load("Green_areas_OSM_polygons.RData")
+
+
 # Togliamo
 # St_difference per togliere buildings, parcheggi etc
 # st_difference su x (minuendo) e y (sottraendo): crea un elemento per ogni sottrazione
 # quindi unendo (st_union) i sottraendi, ci sarà una sola sottrazione e sarà conservato il numero dei minuendi
 load("OSM_features_noBuildings.RData")
 
-# Seleziona elementi da sottrarre e li unisce in un solo multipolygon
+# Seleziona elementi da sottrarre 
 OSM_features %>%
-  filter(value %in% c("pitch","water","industrial","parking","parking_space","service")) %>%
-  st_union -> fts # features to substract
+  filter(value %in% c("pitch","water","industrial","service")) -> fts #%>%
+  # filter(!(osm_id %in% c(142603104, 203083476, 1929164))) %>% # sono sotteranei e cancellano i prati sopra
+
+# riscarica i parcheggi tenendo anche il layer
+opq(bbox = bbox_Rome) %>%
+  add_osm_feature(key = "amenity",
+                  value = c("parking","parking_space")) %>%
+  osmdata_sf() -> amenity_parking_space
+## Evito anche landuse perché ce n'è solo 1
+# opq(bbox = bbox_Rome) %>%
+#   add_osm_feature(key = "landuse",
+#                   value = "parking") %>%
+#   osmdata_sf() -> landuse_parking
+amenity_parking_space$osm_polygons %>%
+  mutate(key = "amenity", value = !!sym("amenity")) %>%
+  select(osm_id, key, value, layer) -> 
+  amenity_parking_space_pol
+amenity_parking_space$osm_multipolygons %>%
+  mutate(key = "amenity", value = !!sym("amenity")) %>%
+  select(osm_id, key, value, layer) -> 
+  amenity_parking_space_multipol
+amenity_parking_space <- rbind(amenity_parking_space_pol, amenity_parking_space_multipol)
+amenity_parking_space %>% pull(osm_id) %>% duplicated %>% which
+amenity_parking_space %>% pull(layer) %>% table
+amenity_parking_space %>% filter(!(layer %in% c("-1","-3"))) %>%
+  select(osm_id, key, value) -> amenity_parking_space_noSubt
+
+# Unisce parkings alle altre features da rimuovere
+fts <- rbind(fts, amenity_parking_space_noSubt)
+fts %>% pull(osm_id) %>% duplicated %>% which
+rm(amenity_parking_space, amenity_parking_space_pol, amenity_parking_space_multipol)
+# e li unisce in un solo multipolygon
+fts %>% st_union -> fts # features to substract
 
 # Sottrae questi elementi alle green areas
-iv <- st_is_valid(green_areas)
+# iv <- st_is_valid(green_areas)
 green_areas_minus_1 <- st_difference(st_make_valid(green_areas),fts)
-st_write(green_areas_minus_1,dsn="green_areas_minus_1.shp")
-a <- green_areas_minus_1
-table(st_geometry_type(a))
-a %>% filter(st_is(.,"POLYGON")) %>% st_write(dsn="green_areas_minus_1_pol.shp")
-a %>% filter(st_is(.,"MULTILINESTRING")) %>% st_write(dsn="green_areas_minus_1_mls.shp")
+green_areas_minus_1 %>% st_geometry_type %>% table
+# Extract the "geometrycollections", remove them from the object (together with multilinestrings), put them back in
+green_areas_minus_1 %>%
+  filter(st_is(.,"GEOMETRYCOLLECTION")) %>%
+  st_collection_extract -> green_areas_minus_1_gcce
+green_areas_minus_1 %>%
+  filter(!st_is(.,"GEOMETRYCOLLECTION")) %>%
+  filter(!st_is(.,"MULTILINESTRING")) %>%
+  rbind(green_areas_minus_1_gcce) -> green_areas_minus_1
+save(green_areas_minus_1,file="green_areas_minus_1.RData")
+st_write(green_areas_minus_1,dsn="green_areas_minus_1.shp", append=F)
 
-sc <- green_areas %>% filter(osm_id ==  1192608701)
-sc <- st_read("ValcoSanPaolo.shp")
-sc %>% filter(value != "pitch") -> sc
-plot(st_geometry(sc))
-a <- st_difference(sc,fts)
-plot(st_geometry(a))
+# Then remove buildings
+buildings_pol <- st_read("G:/.shortcut-targets-by-id/12FFHFZn1Knejtg8k-BIRnvHkvQWdvDfw/Prin - UrBis/GIS/building_polygons.gpkg")
+buildings_multipol <- st_read("G:/.shortcut-targets-by-id/12FFHFZn1Knejtg8k-BIRnvHkvQWdvDfw/Prin - UrBis/GIS/building_multipolygons.gpkg")
+buildings <- rbind(buildings_pol, buildings_multipol)
+buildings %>% pull(osm_id) %>% duplicated %>% which
+buildings %>% pull(building) %>% table
+buildings %>% st_make_valid %>% st_union -> buildings_union # takes 20 minutes
+save(buildings_union,file="buildings_union.RData")
+green_areas_minus_1_valid <- st_make_valid(green_areas_minus_1)
+buildings_union_valid <- st_make_valid(buildings_union)
+save(buildings_union_valid,file="buildings_union_valid.RData")
 
-parcheggio <- OSM_features %>% filter(osm_id == 203083476)
-prato <- green_areas %>% filter(osm_id == 1163669812)
-plot(st_geometry(parcheggio))
-plot(st_geometry(prato),add=T)
-st_contains(parcheggio, prato)
+green_areas_minus_2 <- st_difference(green_areas_minus_1_valid,buildings_union_valid)
+save(green_areas_minus_2, file="green_areas_minus_2.RData")
+st_write(green_areas_minus_2,dsn="green_areas_minus_2.shp", append=F)
+
+# a <- green_areas_minus_1
+# table(st_geometry_type(a))
+# a %>% filter(st_is(.,"POLYGON")) %>% st_write(dsn="green_areas_minus_1_pol.shp")
+# a %>% filter(st_is(.,"MULTILINESTRING")) %>% st_write(dsn="green_areas_minus_1_mls.shp")
+# a %>% filter(st_is(.,"MULTIPOLYGON")) %>% st_write(dsn="green_areas_minus_1_mp.shp")
+# a %>% filter(st_is(.,"GEOMETRYCOLLECTION")) %>% st_collection_extract %>% st_write(dsn="green_areas_minus_1_gcce.shp")
+# rm(a)
+
+
+
+
 #   other_landuse = c('recreation_ground', )
 #   other_leisure = c('bird_hide',  'nature_reserve')
 #   other_natural = c('wetland', 'shrubbery', 'tree', 'tree_row')

@@ -4,4 +4,4 @@ park da tenere? se teniamo, togliamo i pitch, i corsi d'acqua, buildings, landus
 non togliere: sentierini (non ci complichiamo la vita)
 buffer motorway in base a lanes?
 
-a volte i parcheggi inglobano i prati, quindi la st_difference dà risultato sbagliato. fare un check con st_contain
+parcheggio piazza cavour
