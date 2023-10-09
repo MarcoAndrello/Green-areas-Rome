@@ -47,6 +47,7 @@ for (i.key in 1 : length(v.key)) {
 
 # save(osmdata_object,file="OSM_data_Roma.RData")
 load("OSM_data_Roma.RData")
+## SPOSTATO IN GOOGLE DRIVE ###
 
 # Ora check di che extent ha questa roba
 i.key <- 1

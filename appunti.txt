@@ -5,3 +5,9 @@ non togliere: sentierini (non ci complichiamo la vita)
 buffer motorway in base a lanes?
 
 parcheggio piazza cavour
+
+per prendere il grigio fondo carta: strade, edifici, corpi d'acqua...
+ora devo esplodere (multipoligon to single polygons), eliminare quelli più piccoli, produco greys_2 con 20,000 elementi
+ora faccio differenza greys_2 - buildings sia su Qgis sia su R
+
+togliere le strade dai residential

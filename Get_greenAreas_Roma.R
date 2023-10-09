@@ -119,29 +119,23 @@ green_areas_minus_2 <- st_difference(green_areas_minus_1_valid,buildings_union_v
 save(green_areas_minus_2, file="green_areas_minus_2.RData")
 st_write(green_areas_minus_2,dsn="green_areas_minus_2.shp", append=F)
 
-# a <- green_areas_minus_1
-# table(st_geometry_type(a))
-# a %>% filter(st_is(.,"POLYGON")) %>% st_write(dsn="green_areas_minus_1_pol.shp")
-# a %>% filter(st_is(.,"MULTILINESTRING")) %>% st_write(dsn="green_areas_minus_1_mls.shp")
-# a %>% filter(st_is(.,"MULTIPOLYGON")) %>% st_write(dsn="green_areas_minus_1_mp.shp")
-# a %>% filter(st_is(.,"GEOMETRYCOLLECTION")) %>% st_collection_extract %>% st_write(dsn="green_areas_minus_1_gcce.shp")
-# rm(a)
+# Tolgo le strade dai residential
+green_areas_minus_2_residential <- st_read("green_areas_minus_2_residential.shp")
+load("highway_railway.RData")
+highway_railway_valid <- st_make_valid(highway_railway)
+highway_railway_union <- st_union(highway_railway_valid)
+highway_railway_union_valid <- st_make_valid(highway_railway_union)
+save(highway_railway_union_valid,file="highway_railway_union_valid.RData")
+st_write(highway_railway_union_valid,dsn="highway_railway_union_valid.shp")
+green_areas_minus_3_residential <- st_difference(green_areas_minus_2_residential, highway_railway_union_valid)
 
-
-
-
-#   other_landuse = c('recreation_ground', )
-#   other_leisure = c('bird_hide',  'nature_reserve')
-#   other_natural = c('wetland', 'shrubbery', 'tree', 'tree_row')
-#   other_boundary = c('forest','forest_compartment','national_park', 'protected_area')
-#   
-# pitch <- green_areas %>% filter(osm_id %in% c(23646556,23646557, 220649698))
-# plot(st_geometry(pitch))
-# pitch_union <- st_union(pitch)
-# sc <- green_areas %>% filter(osm_id ==  1192608701)
-# plot(st_geometry(sc))
-# plot(st_geometry(pitch),add=T)
-# st_area(sc)
-# a <- st_difference(sc,pitch_union)
-# plot(st_geometry(a))
-st_area(st_geometry(st_difference(sc,pitch)))
+# QUI IL PROBLEMA E' CHE HIGHWAY RAILWAY UNION VALID SONO LINEE E NON PIù POLIGONI
+green_areas_minus_3_residential %>% st_geometry_type %>% table
+green_areas_minus_3_residential %>%
+  filter(st_is(.,"GEOMETRYCOLLECTION")) %>%
+  st_collection_extract -> green_areas_minus_3_residential_gcce
+green_areas_minus_3_residential %>%
+  filter(!st_is(.,"GEOMETRYCOLLECTION")) %>%
+  rbind(green_areas_minus_3_residential_gcce) -> green_areas_minus_3_residential
+save(green_areas_minus_3_residential, file="green_areas_minus_3_residential.RData")
+st_write(green_areas_minus_3_residential,dsn="green_areas_minus_3_residential.shp", append=F)
