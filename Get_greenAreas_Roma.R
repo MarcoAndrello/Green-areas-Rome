@@ -119,9 +119,21 @@ green_areas_minus_2 <- st_difference(green_areas_minus_1_valid,buildings_union_v
 save(green_areas_minus_2, file="green_areas_minus_2.RData")
 st_write(green_areas_minus_2,dsn="green_areas_minus_2.shp", append=F)
 
+# In Qgis, separo le green_areas_minus_2 in 2 shapefile: _residential e _noResidential
+
 # Tolgo le strade dai residential
 green_areas_minus_2_residential <- st_read("green_areas_minus_2_residential.shp")
-load("highway_railway.RData")
+highway_railway_dissolto <- st_read("Highway_railway_dissolto.shp")
+green_areas_minus_3_residential <- st_difference(green_areas_minus_2_residential, highway_railway_dissolto)
+green_areas_minus_3_residential %>% st_geometry_type %>% table
+green_areas_minus_3_residential %>%
+  filter(st_is(.,"GEOMETRYCOLLECTION")) %>%
+  st_collection_extract -> green_areas_minus_3_residential_gcce
+green_areas_minus_3_residential %>%
+  filter(!st_is(.,"GEOMETRYCOLLECTION")) %>%
+  rbind(green_areas_minus_3_residential_gcce) -> green_areas_minus_3_residential
+st_write(green_areas_minus_3_residential,dsn="green_areas_minus_3_residential.shp", append=F)
+
 highway_railway_valid <- st_make_valid(highway_railway)
 highway_railway_union <- st_union(highway_railway_valid)
 highway_railway_union_valid <- st_make_valid(highway_railway_union)
